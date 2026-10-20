@@ -34,7 +34,7 @@
         .stream-section { display: flex; flex-direction: column; gap: 15px; }
         .player-container { background-color: var(--panel-bg); border-radius: 12px; overflow: hidden; aspect-ratio: 16/9; display: flex; align-items: center; justify-content: center; position: relative; border: 1px solid #334155; }
         
-        /* 🔒 Blocare totală interacțiune pe player (fără play/pauză) */
+        /* 🔒 Fără controale, interacțiune blocată (stil live TV), auto-play pur */
         .player-container video, .player-container iframe { width: 100%; height: 100%; object-fit: cover; border: none; pointer-events: none; }
         
         .offline-message { text-align: center; color: var(--text-muted); padding: 20px; display: flex; flex-direction: column; gap: 8px; }
@@ -153,9 +153,11 @@
         let isPremium = localStorage.getItem('bro_premium') === 'true';
         const ADMINS = ["stefan.y8894yt@gmail.com", "dvdgeo90@gmail.com"];
         let localAudioStream = null;
+        let lastLoadedStream = "";
 
         if(currentUser) applyUserSession(currentUser);
 
+        // Sincronizare în timp real și Auto-play forțat
         setInterval(() => {
             let savedStream = localStorage.getItem('bro_current_stream');
             let isAdActive = localStorage.getItem('bro_active_is_ad') === 'true';
@@ -189,6 +191,7 @@
             }
 
             if(!savedStream || savedStream === 'STOP') {
+                lastLoadedStream = 'STOP';
                 if(!document.getElementById('offlineState')) {
                     container.innerHTML = `
                         <div class="ad-overlay" id="adBadge">⚠️ RECLAMĂ SPONSORIZATĂ</div>
@@ -199,41 +202,49 @@
                         </div>
                     `;
                 }
-            } else if(savedStream === 'WEBCAM_LIVE') {
-                if(!container.querySelector('video[autoplay]')) {
-                    container.innerHTML = `
-                        <div class="ad-overlay" id="adBadge">⚠️ RECLAMĂ SPONSORIZATĂ</div>
-                        <div class="quality-badge" id="qualityBadge">${isBoosted ? 'CALITATE: 1080p (Boost ⭐)' : 'CALITATE: 720p (Minim)'}</div>
-                        <video id="remoteWebcamView" autoplay playsinline style="width:100%; height:100%; object-fit:cover; pointer-events:none;"></video>
-                    `;
-                    navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
-                        let vid = document.getElementById('remoteWebcamView');
-                        if(vid) vid.srcObject = stream;
-                    }).catch(e => console.log("Live stream feed error"));
-                }
             } else {
-                if(savedStream.includes('youtube.com') || savedStream.includes('youtu.be')) {
-                    let id = savedStream.split('v=')[1]?.split('&')[0] || savedStream.split('/').pop();
-                    if(!container.querySelector('iframe')) {
-                        // Parametrii YouTube adăugați: autoplay=1, controls=0, disablekb=1 (fără tastatură/pauză)
+                // Reîncarcă playerul doar dacă s-a schimbat streamul, pentru a asigura auto-play fluid
+                if(lastLoadedStream !== savedStream) {
+                    lastLoadedStream = savedStream;
+
+                    if(savedStream === 'WEBCAM_LIVE') {
                         container.innerHTML = `
                             <div class="ad-overlay" id="adBadge">⚠️ RECLAMĂ SPONSORIZATĂ</div>
                             <div class="quality-badge" id="qualityBadge">${isBoosted ? 'CALITATE: 1080p (Boost ⭐)' : 'CALITATE: 720p (Minim)'}</div>
-                            <iframe src="https://www.youtube.com/embed/${id}?autoplay=1&controls=0&disablekb=1&modestbranding=1&loop=1" allow="autoplay" allowfullscreen></iframe>
+                            <video id="remoteWebcamView" autoplay playsinline muted style="width:100%; height:100%; object-fit:cover; pointer-events:none;"></video>
                         `;
-                    }
-                } else {
-                    if(!container.querySelector('video:not(#remoteWebcamView)')) {
-                        // Fără atributele 'controls' ca să nu poată interacționa spectatorul
+                        navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
+                            let vid = document.getElementById('remoteWebcamView');
+                            if(vid) {
+                                vid.srcObject = stream;
+                                vid.play().catch(e => console.log("Autoplay block prevented"));
+                            }
+                        }).catch(e => console.log("Live stream feed error"));
+                    } else if(savedStream.includes('youtube.com') || savedStream.includes('youtu.be')) {
+                        let id = savedStream.split('v=')[1]?.split('&')[0] || savedStream.split('/').pop();
                         container.innerHTML = `
                             <div class="ad-overlay" id="adBadge">⚠️ RECLAMĂ SPONSORIZATĂ</div>
                             <div class="quality-badge" id="qualityBadge">${isBoosted ? 'CALITATE: 1080p (Boost ⭐)' : 'CALITATE: 720p (Minim)'}</div>
-                            <video autoplay muted src="${savedStream}"></video>
+                            <iframe src="https://www.youtube.com/embed/${id}?autoplay=1&mute=0&controls=0&disablekb=1&modestbranding=1&loop=1&playlist=${id}" allow="autoplay; encrypted-media" allowfullscreen></iframe>
                         `;
+                    } else {
+                        container.innerHTML = `
+                            <div class="ad-overlay" id="adBadge">⚠️ RECLAMĂ SPONSORIZATĂ</div>
+                            <div class="quality-badge" id="qualityBadge">${isBoosted ? 'CALITATE: 1080p (Boost ⭐)' : 'CALITATE: 720p (Minim)'}</div>
+                            <video autoplay playsinline muted src="${savedStream}"></video>
+                        `;
+                        let vNode = container.querySelector('video');
+                        if(vNode) {
+                            vNode.play().catch(err => {
+                                // Fallback cu muted obligatoriu în caz de blocaj browser
+                                vNode.muted = true;
+                                vNode.play();
+                            });
+                        }
                     }
                 }
             }
-        }, 1500);
+        }, 1000);
 
         function openModal(id) { document.getElementById(id).style.display = 'flex'; }
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
