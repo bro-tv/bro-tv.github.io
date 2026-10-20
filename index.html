@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BroTV - Live & Streaming Platform</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
         :root {
             --bg-color: #0f172a;
@@ -34,8 +37,7 @@
         .stream-section { display: flex; flex-direction: column; gap: 15px; }
         .player-container { background-color: var(--panel-bg); border-radius: 12px; overflow: hidden; aspect-ratio: 16/9; display: flex; align-items: center; justify-content: center; position: relative; border: 1px solid #334155; }
         
-        /* 🔒 Fără controale, interacțiune blocată (stil live TV), auto-play pur */
-        .player-container video, .player-container iframe { width: 100%; height: 100%; object-fit: cover; border: none; pointer-events: none; }
+        .player-container video, .player-container iframe { width: 100%; height: 100%; object-fit: cover; border: none; }
         
         .offline-message { text-align: center; color: var(--text-muted); padding: 20px; display: flex; flex-direction: column; gap: 8px; }
         .offline-message h3 { color: var(--text); font-size: 20px; }
@@ -149,19 +151,32 @@
     </div>
 
     <script>
+        const firebaseConfig = {
+            databaseURL: "https://brotv-live-default-rtdb.europe-west1.firebasedatabase.app/"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
         let currentUser = localStorage.getItem('bro_user') || null;
         let isPremium = localStorage.getItem('bro_premium') === 'true';
         const ADMINS = ["stefan.y8894yt@gmail.com", "dvdgeo90@gmail.com"];
-        let localAudioStream = null;
+        let peerConnection = null;
         let lastLoadedStream = "";
+
+        const servers = {
+            iceServers: [{ urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] }]
+        };
 
         if(currentUser) applyUserSession(currentUser);
 
-        setInterval(() => {
-            let savedStream = localStorage.getItem('bro_current_stream');
-            let isAdActive = localStorage.getItem('bro_active_is_ad') === 'true';
-            let isBoosted = localStorage.getItem('bro_boost_active') === 'true';
-            let aiText = localStorage.getItem('bro_ai_widget');
+        // Sincronizare Stare Generală Cloud
+        db.ref('bro_state').on('value', async (snapshot) => {
+            const data = snapshot.val() || {};
+            let savedStream = data.current_stream || 'STOP';
+            let isAdActive = data.is_ad === true;
+            let isBoosted = data.boost_active === true;
+            let aiText = data.ai_widget || '';
+            
             let adBadge = document.getElementById('adBadge');
             let qBadge = document.getElementById('qualityBadge');
             const container = document.getElementById('playerContainer');
@@ -189,8 +204,9 @@
                 adBadge.style.display = 'none';
             }
 
-            if(!savedStream || savedStream === 'STOP') {
+            if(savedStream === 'STOP') {
                 lastLoadedStream = 'STOP';
+                if(peerConnection) { peerConnection.close(); peerConnection = null; }
                 if(!document.getElementById('offlineState')) {
                     container.innerHTML = `
                         <div class="ad-overlay" id="adBadge">⚠️ RECLAMĂ SPONSORIZATĂ</div>
@@ -201,24 +217,22 @@
                         </div>
                     `;
                 }
+            } else if(savedStream === 'WEBCAM_LIVE') {
+                if(lastLoadedStream !== 'WEBCAM_LIVE') {
+                    lastLoadedStream = 'WEBCAM_LIVE';
+                    container.innerHTML = `
+                        <div class="ad-overlay" id="adBadge">⚠️ RECLAMĂ SPONSORIZATĂ</div>
+                        <div class="quality-badge" id="qualityBadge">${isBoosted ? 'CALITATE: 1080p (Boost ⭐)' : 'CALITATE: 720p (Minim)'}</div>
+                        <video id="remoteWebcamView" autoplay playsinline controls style="width:100%; height:100%; object-fit:cover;"></video>
+                    `;
+                    startViewerWebcamReceive();
+                }
             } else {
                 if(lastLoadedStream !== savedStream) {
                     lastLoadedStream = savedStream;
+                    if(peerConnection) { peerConnection.close(); peerConnection = null; }
 
-                    if(savedStream === 'WEBCAM_LIVE') {
-                        container.innerHTML = `
-                            <div class="ad-overlay" id="adBadge">⚠️ RECLAMĂ SPONSORIZATĂ</div>
-                            <div class="quality-badge" id="qualityBadge">${isBoosted ? 'CALITATE: 1080p (Boost ⭐)' : 'CALITATE: 720p (Minim)'}</div>
-                            <video id="remoteWebcamView" autoplay playsinline muted style="width:100%; height:100%; object-fit:cover; pointer-events:none;"></video>
-                        `;
-                        navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
-                            let vid = document.getElementById('remoteWebcamView');
-                            if(vid) {
-                                vid.srcObject = stream;
-                                vid.play().catch(e => console.log("Autoplay blocked"));
-                            }
-                        }).catch(e => console.log("Live stream feed error"));
-                    } else if(savedStream.includes('youtube.com') || savedStream.includes('youtu.be')) {
+                    if(savedStream.includes('youtube.com') || savedStream.includes('youtu.be')) {
                         let id = savedStream.split('v=')[1]?.split('&')[0] || savedStream.split('/').pop();
                         container.innerHTML = `
                             <div class="ad-overlay" id="adBadge">⚠️ RECLAMĂ SPONSORIZATĂ</div>
@@ -229,19 +243,41 @@
                         container.innerHTML = `
                             <div class="ad-overlay" id="adBadge">⚠️ RECLAMĂ SPONSORIZATĂ</div>
                             <div class="quality-badge" id="qualityBadge">${isBoosted ? 'CALITATE: 1080p (Boost ⭐)' : 'CALITATE: 720p (Minim)'}</div>
-                            <video autoplay playsinline muted src="${savedStream}"></video>
+                            <video autoplay playsinline controls src="${savedStream}"></video>
                         `;
-                        let vNode = container.querySelector('video');
-                        if(vNode) {
-                            vNode.play().catch(err => {
-                                vNode.muted = true;
-                                vNode.play();
-                            });
-                        }
                     }
                 }
             }
-        }, 1000);
+        });
+
+        // Primire Stream Live WebRTC de la Admin
+        async function startViewerWebcamReceive() {
+            peerConnection = new RTCPeerConnection(servers);
+            let remoteVideo = document.getElementById('remoteWebcamView');
+
+            peerConnection.ontrack = (event) => {
+                if(remoteVideo && event.streams[0]) {
+                    remoteVideo.srcObject = event.streams[0];
+                }
+            };
+
+            db.ref('webrtc/offer').on('value', async (snapshot) => {
+                let offer = snapshot.val();
+                if(offer && !peerConnection.currentRemoteDescription && peerConnection.signalingState === "stable") {
+                    await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+                    let answer = await peerConnection.createAnswer();
+                    await peerConnection.setLocalDescription(answer);
+                    db.ref('webrtc/answer').set(answer);
+                }
+            });
+
+            db.ref('webrtc/candidates').on('child_added', (snapshot) => {
+                let candidate = snapshot.val();
+                if(candidate && peerConnection) {
+                    peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                }
+            });
+        }
 
         function openModal(id) { document.getElementById(id).style.display = 'flex'; }
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
@@ -274,71 +310,52 @@
         function logout() {
             localStorage.removeItem('bro_user');
             localStorage.removeItem('bro_premium');
-            localStorage.removeItem('bro_boost_active');
             location.reload();
         }
 
         function redeemCode() {
             const code = document.getElementById('codeInput').value.trim().toUpperCase();
-            let codes = JSON.parse(localStorage.getItem('bro_codes')) || ["BRO-VIP-2026"];
-            let idx = codes.indexOf(code);
-            if(idx !== -1) {
-                isPremium = true;
-                localStorage.setItem('bro_premium', 'true');
-                codes.splice(idx, 1);
-                localStorage.setItem('bro_codes', JSON.stringify(codes));
-                document.getElementById('vipBadge').style.display = 'inline-block';
-                document.getElementById('boostBtn').style.display = 'inline-block';
-                alert("Cod activat cu succes! Ai devenit Premium 🎉");
-                closeModal('codeModal');
-            } else {
-                alert("Cod invalid sau deja folosit!");
-            }
+            db.ref('bro_codes/' + code).once('value', (snapshot) => {
+                if(snapshot.exists() && snapshot.val() === true) {
+                    isPremium = true;
+                    localStorage.setItem('bro_premium', 'true');
+                    db.ref('bro_codes/' + code).remove();
+                    document.getElementById('vipBadge').style.display = 'inline-block';
+                    document.getElementById('boostBtn').style.display = 'inline-block';
+                    alert("Cod activat cu succes! Ai devenit Premium 🎉");
+                    closeModal('codeModal');
+                } else {
+                    alert("Cod invalid sau deja folosit!");
+                }
+            });
         }
 
         async function raiseHandAudio() {
             if(!currentUser) return alert("Trebuie să fii logat!");
-            if(!isPremium && !ADMINS.includes(currentUser)) {
-                return alert("🔒 Funcția audio 'Ridică Mâna' este disponibilă doar pentru utilizatorii PREMIUM!");
-            }
-            try {
-                localAudioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                let hands = JSON.parse(localStorage.getItem('bro_raised_hands')) || [];
-                if(!hands.includes(currentUser)) {
-                    hands.push(currentUser);
-                    localStorage.setItem('bro_raised_hands', JSON.stringify(hands));
-                }
-                alert("🎤 Microfon activat! Ai ridicat mâna în direct.");
-            } catch (err) {
-                alert("Erore la accesarea microfonului!");
-            }
+            db.ref('bro_hands/' + currentUser.replace('.', '_')).set(true);
+            alert("🎤 Ai ridicat mâna în direct.");
         }
 
         function sendBoost() {
-            if(!isPremium && !ADMINS.includes(currentUser)) {
-                return alert("🔒 Funcția de Boost este destinată EXCLUSIV membrilor PREMIUM!");
-            }
-            let currentBoost = localStorage.getItem('bro_boost_active') === 'true';
-            if(currentBoost) {
-                localStorage.removeItem('bro_boost_active');
-                alert("🚀 Boost dezactivat. Calitatea a revenit la 720p.");
-            } else {
-                localStorage.setItem('bro_boost_active', 'true');
-                alert("🚀 Boost activat! Calitatea streamului a urcat la maxim 1080p 🌟");
-            }
+            db.ref('bro_state/boost_active').transaction((current) => !current);
         }
 
         function sendMessage() {
             const input = document.getElementById('chatInput');
             if(!input.value.trim()) return;
-            const chat = document.getElementById('chatMessages');
             let name = currentUser ? currentUser.split('@')[0] : 'Guest';
             if(isPremium || ADMINS.includes(currentUser)) name += ' ⭐VIP';
-            chat.innerHTML += `<div><b>${name}:</b> ${input.value}</div>`;
+            db.ref('bro_chat').push({ name: name, message: input.value });
             input.value = '';
-            chat.scrollTop = chat.scrollHeight;
         }
         function checkSend(e) { if(e.key === 'Enter') sendMessage(); }
+
+        db.ref('bro_chat').limitToLast(50).on('child_added', (snapshot) => {
+            const val = snapshot.val();
+            const chat = document.getElementById('chatMessages');
+            chat.innerHTML += `<div><b>${val.name}:</b> ${val.message}</div>`;
+            chat.scrollTop = chat.scrollHeight;
+        });
     </script>
 </body>
 </html>
