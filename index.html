@@ -154,6 +154,7 @@
 
         if(currentUser) applyUserSession(currentUser);
 
+        // Sincronizare în timp real cu panoul de admin (inclusiv fișierele Drag & Drop)
         setInterval(() => {
             let savedStream = localStorage.getItem('bro_current_stream');
             let isAdActive = localStorage.getItem('bro_active_is_ad') === 'true';
@@ -210,6 +211,7 @@
                     }).catch(e => console.log("Live stream feed error"));
                 }
             } else {
+                // Verifică dacă e link YouTube sau fișier video local încărcat prin Drag & Drop (data:video)
                 if(savedStream.includes('youtube.com') || savedStream.includes('youtu.be')) {
                     let id = savedStream.split('v=')[1]?.split('&')[0] || savedStream.split('/').pop();
                     if(!container.querySelector('iframe')) {
@@ -220,6 +222,7 @@
                         `;
                     }
                 } else {
+                    // Redă fișiere video locale sau linkuri MP4 directe
                     if(!container.querySelector('video:not(#remoteWebcamView)')) {
                         container.innerHTML = `
                             <div class="ad-overlay" id="adBadge">⚠️ RECLAMĂ SPONSORIZATĂ</div>
@@ -249,7 +252,6 @@
             document.getElementById('logoutBtn').style.display = 'inline-block';
             document.getElementById('viewerControls').style.display = 'flex';
 
-            // Afișează butonul de Boost și microfon DOAR dacă este Premium sau Admin
             if(isPremium || ADMINS.includes(email)) {
                 document.getElementById('vipBadge').style.display = 'inline-block';
                 document.getElementById('boostBtn').style.display = 'inline-block';
@@ -304,7 +306,6 @@
         }
 
         function sendBoost() {
-            // VERIFICARE STRICTĂ: Doar Premium sau Admin pot trimite Boost
             if(!isPremium && !ADMINS.includes(currentUser)) {
                 return alert("🔒 Funcția de Boost este destinată EXCLUSIV membrilor PREMIUM!");
             }
