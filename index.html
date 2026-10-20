@@ -39,11 +39,11 @@
         .offline-message h3 { color: var(--text); font-size: 20px; }
         
         .ad-overlay { position: absolute; top: 15px; left: 15px; background: var(--danger); color: white; padding: 5px 12px; border-radius: 6px; font-weight: bold; font-size: 12px; z-index: 10; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+        .quality-badge { position: absolute; bottom: 15px; right: 15px; background: rgba(0,0,0,0.7); color: var(--gold); padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 12px; z-index: 10; border: 1px solid var(--gold); }
 
         .announcements-bar { background: #334155; padding: 10px 15px; border-radius: 8px; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
         .controls-bar { background-color: var(--panel-bg); padding: 15px; border-radius: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
         
-        /* Zona unde AI-ul injectează elemente/anunțuri pe site */
         #aiDynamicContainer { background: rgba(99, 102, 241, 0.1); border: 1px dashed var(--accent); padding: 15px; border-radius: 8px; display: none; }
 
         .sidebar { display: flex; flex-direction: column; gap: 15px; }
@@ -86,7 +86,6 @@
                 <span id="announcementText">📢 Bine ai venit pe BroTV! Urmărește transmisiunile live.</span>
             </div>
 
-            <!-- Secțiune generată sau actualizată de AI din Admin -->
             <div id="aiDynamicContainer">
                 <h4 style="color: #818cf8; margin-bottom: 5px;">🤖 Anunț / Widget generat de AI:</h4>
                 <div id="aiDynamicContent"></div>
@@ -94,6 +93,7 @@
 
             <div class="player-container" id="playerContainer">
                 <div class="ad-overlay" id="adBadge">⚠️ RECLAMĂ SPONSORIZATĂ</div>
+                <div class="quality-badge" id="qualityBadge">CALITATE: 720p (Minim)</div>
                 <div class="offline-message" id="offlineState">
                     <h3>🔴 BroTV este Offline momentan</h3>
                     <p>Nu rulează niciun videoclip. Administratorul va porni curând o transmisie!</p>
@@ -101,8 +101,8 @@
             </div>
 
             <div class="controls-bar" id="viewerControls" style="display:none;">
-                <button class="btn-success" id="raiseHandBtn" onclick="raiseHand()">✋ Ridică Mâna</button>
-                <button class="btn-gold" id="boostBtn" onclick="sendBoost()" style="display:none;">🚀 Trimite Boost Stream</button>
+                <button class="btn-success" id="raiseHandBtn" onclick="raiseHandAudio()">🎤 Ridică Mâna & Vorbește (Audio)</button>
+                <button class="btn-gold" id="boostBtn" onclick="sendBoost()" style="display:none;">🚀 Trimite Boost (Mărește la 1080p)</button>
             </div>
         </div>
 
@@ -110,8 +110,8 @@
             <div class="perks-box">
                 <h4>⭐ Beneficii Cont PREMIUM:</h4>
                 <div>• Badge auriu exclusiv în chat</div>
-                <div>• <b>Fără reclame!</b> (sari peste pauze publicitare)</div>
-                <div>• Acces la „Ridică Mâna” și Boost</div>
+                <div>• <b>Fără reclame!</b></div>
+                <div>• Acces exclusiv la Boost (1080p) și Microfon Audio</div>
             </div>
 
             <div class="chat-section">
@@ -150,18 +150,27 @@
         let currentUser = localStorage.getItem('bro_user') || null;
         let isPremium = localStorage.getItem('bro_premium') === 'true';
         const ADMINS = ["stefan.y8894yt@gmail.com", "dvdgeo90@gmail.com"];
+        let localAudioStream = null;
 
         if(currentUser) applyUserSession(currentUser);
 
-        // Sincronizare în timp real cu Panoul Admin & AI
         setInterval(() => {
             let savedStream = localStorage.getItem('bro_current_stream');
             let isAdActive = localStorage.getItem('bro_active_is_ad') === 'true';
+            let isBoosted = localStorage.getItem('bro_boost_active') === 'true';
             let aiText = localStorage.getItem('bro_ai_widget');
             let adBadge = document.getElementById('adBadge');
+            let qBadge = document.getElementById('qualityBadge');
             const container = document.getElementById('playerContainer');
 
-            // Afișare widget generat de AI pe site dacă există
+            if(isBoosted) {
+                qBadge.innerText = "CALITATE: 1080p (Boost ⭐)";
+                qBadge.style.color = "#22c55e";
+            } else {
+                qBadge.innerText = "CALITATE: 720p (Minim)";
+                qBadge.style.color = "var(--gold)";
+            }
+
             const aiBox = document.getElementById('aiDynamicContainer');
             const aiContent = document.getElementById('aiDynamicContent');
             if(aiText) {
@@ -171,7 +180,6 @@
                 aiBox.style.display = 'none';
             }
 
-            // Gestiune reclame pentru non-premium
             if(isAdActive && !isPremium && !ADMINS.includes(currentUser)) {
                 adBadge.style.display = 'block';
             } else {
@@ -182,11 +190,24 @@
                 if(!document.getElementById('offlineState')) {
                     container.innerHTML = `
                         <div class="ad-overlay" id="adBadge">⚠️ RECLAMĂ SPONSORIZATĂ</div>
+                        <div class="quality-badge" id="qualityBadge">CALITATE: 720p (Minim)</div>
                         <div class="offline-message" id="offlineState">
                             <h3>🔴 BroTV este Offline momentan</h3>
                             <p>Nu rulează niciun videoclip. Administratorul va porni curând o transmisie!</p>
                         </div>
                     `;
+                }
+            } else if(savedStream === 'WEBCAM_LIVE') {
+                if(!container.querySelector('video[autoplay]')) {
+                    container.innerHTML = `
+                        <div class="ad-overlay" id="adBadge">⚠️ RECLAMĂ SPONSORIZATĂ</div>
+                        <div class="quality-badge" id="qualityBadge">${isBoosted ? 'CALITATE: 1080p (Boost ⭐)' : 'CALITATE: 720p (Minim)'}</div>
+                        <video id="remoteWebcamView" autoplay playsinline style="width:100%; height:100%; object-fit:cover;"></video>
+                    `;
+                    navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
+                        let vid = document.getElementById('remoteWebcamView');
+                        if(vid) vid.srcObject = stream;
+                    }).catch(e => console.log("Live stream feed error"));
                 }
             } else {
                 if(savedStream.includes('youtube.com') || savedStream.includes('youtu.be')) {
@@ -194,13 +215,15 @@
                     if(!container.querySelector('iframe')) {
                         container.innerHTML = `
                             <div class="ad-overlay" id="adBadge">⚠️ RECLAMĂ SPONSORIZATĂ</div>
+                            <div class="quality-badge" id="qualityBadge">${isBoosted ? 'CALITATE: 1080p (Boost ⭐)' : 'CALITATE: 720p (Minim)'}</div>
                             <iframe src="https://www.youtube.com/embed/${id}?autoplay=1" allow="autoplay" allowfullscreen></iframe>
                         `;
                     }
                 } else {
-                    if(!container.querySelector('video')) {
+                    if(!container.querySelector('video:not(#remoteWebcamView)')) {
                         container.innerHTML = `
                             <div class="ad-overlay" id="adBadge">⚠️ RECLAMĂ SPONSORIZATĂ</div>
+                            <div class="quality-badge" id="qualityBadge">${isBoosted ? 'CALITATE: 1080p (Boost ⭐)' : 'CALITATE: 720p (Minim)'}</div>
                             <video controls autoplay src="${savedStream}"></video>
                         `;
                     }
@@ -226,6 +249,7 @@
             document.getElementById('logoutBtn').style.display = 'inline-block';
             document.getElementById('viewerControls').style.display = 'flex';
 
+            // Afișează butonul de Boost și microfon DOAR dacă este Premium sau Admin
             if(isPremium || ADMINS.includes(email)) {
                 document.getElementById('vipBadge').style.display = 'inline-block';
                 document.getElementById('boostBtn').style.display = 'inline-block';
@@ -239,6 +263,7 @@
         function logout() {
             localStorage.removeItem('bro_user');
             localStorage.removeItem('bro_premium');
+            localStorage.removeItem('bro_boost_active');
             location.reload();
         }
 
@@ -260,19 +285,37 @@
             }
         }
 
-        function raiseHand() {
+        async function raiseHandAudio() {
             if(!currentUser) return alert("Trebuie să fii logat!");
             if(!isPremium && !ADMINS.includes(currentUser)) {
-                return alert("🔒 Funcția 'Ridică Mâna' este disponibilă doar pentru utilizatorii PREMIUM sau Admini!");
+                return alert("🔒 Funcția audio 'Ridică Mâna' este disponibilă doar pentru utilizatorii PREMIUM!");
             }
-            alert("✋ Ai ridicat mâna cu succes! Administratorii au fost notificați.");
+            try {
+                localAudioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                let hands = JSON.parse(localStorage.getItem('bro_raised_hands')) || [];
+                if(!hands.includes(currentUser)) {
+                    hands.push(currentUser);
+                    localStorage.setItem('bro_raised_hands', JSON.stringify(hands));
+                }
+                alert("🎤 Microfon activat! Ai ridicat mâna în direct.");
+            } catch (err) {
+                alert("Erore la accesarea microfonului!");
+            }
         }
 
         function sendBoost() {
+            // VERIFICARE STRICTĂ: Doar Premium sau Admin pot trimite Boost
             if(!isPremium && !ADMINS.includes(currentUser)) {
-                return alert("🔒 Funcția de Boost este destinată membrilor Premium!");
+                return alert("🔒 Funcția de Boost este destinată EXCLUSIV membrilor PREMIUM!");
             }
-            alert("🚀 Boost trimis cu succes către stream!");
+            let currentBoost = localStorage.getItem('bro_boost_active') === 'true';
+            if(currentBoost) {
+                localStorage.removeItem('bro_boost_active');
+                alert("🚀 Boost dezactivat. Calitatea a revenit la 720p.");
+            } else {
+                localStorage.setItem('bro_boost_active', 'true');
+                alert("🚀 Boost activat! Calitatea streamului a urcat la maxim 1080p 🌟");
+            }
         }
 
         function sendMessage() {
