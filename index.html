@@ -157,7 +157,6 @@
 
         if(currentUser) applyUserSession(currentUser);
 
-        // Sincronizare în timp real și Auto-play forțat
         setInterval(() => {
             let savedStream = localStorage.getItem('bro_current_stream');
             let isAdActive = localStorage.getItem('bro_active_is_ad') === 'true';
@@ -203,7 +202,6 @@
                     `;
                 }
             } else {
-                // Reîncarcă playerul doar dacă s-a schimbat streamul, pentru a asigura auto-play fluid
                 if(lastLoadedStream !== savedStream) {
                     lastLoadedStream = savedStream;
 
@@ -217,7 +215,7 @@
                             let vid = document.getElementById('remoteWebcamView');
                             if(vid) {
                                 vid.srcObject = stream;
-                                vid.play().catch(e => console.log("Autoplay block prevented"));
+                                vid.play().catch(e => console.log("Autoplay blocked"));
                             }
                         }).catch(e => console.log("Live stream feed error"));
                     } else if(savedStream.includes('youtube.com') || savedStream.includes('youtu.be')) {
@@ -236,7 +234,6 @@
                         let vNode = container.querySelector('video');
                         if(vNode) {
                             vNode.play().catch(err => {
-                                // Fallback cu muted obligatoriu în caz de blocaj browser
                                 vNode.muted = true;
                                 vNode.play();
                             });

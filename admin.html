@@ -62,16 +62,16 @@
             </div>
         </div>
 
-        <!-- Drag & Drop Video -->
+        <!-- Drag & Drop Video (Optimizat fără crash) -->
         <div class="section">
             <h3>📁 Încarcă Fișier Video (Drag & Drop)</h3>
-            <div class="drop-zone" onclick="document.getElementById('fileInput').click()">
+            <div class="drop-zone" id="dropZone" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)" onclick="document.getElementById('fileInput').click()">
                 <p>Trage un fișier video aici sau <b>apasă pentru a selecta de pe PC</b></p>
                 <input type="file" id="fileInput" accept="video/*" style="display:none;" onchange="handleFileSelect(event)">
             </div>
         </div>
 
-        <!-- 🤖 AI Assistant Complet (Execută comenzi reale) -->
+        <!-- 🤖 AI Assistant Complet -->
         <div class="section">
             <h3>🤖 Asistent AI (Control & Ajutor)</h3>
             <p style="font-size:13px; color:#94a3b8; margin-bottom:10px;">Scrie ce vrei să facă AI-ul (ex: "șterge ultimul videoclip", "curăță playlistul", "generează un cod vip", "oprește streamul"):</p>
@@ -151,6 +151,29 @@
             logAI("⏹️ Transmisia live a fost oprită. Site-ul este acum Offline.");
         }
 
+        // --- Drag and Drop Optimizat (Fără Crash) ---
+        function handleDragOver(e) { e.preventDefault(); document.getElementById('dropZone').classList.add('dragover'); }
+        function handleDragLeave(e) { document.getElementById('dropZone').classList.remove('dragover'); }
+        function handleDrop(e) {
+            e.preventDefault();
+            document.getElementById('dropZone').classList.remove('dragover');
+            let files = e.dataTransfer.files;
+            if(files.length > 0) processVideoFile(files[0]);
+        }
+        function handleFileSelect(e) {
+            let files = e.target.files;
+            if(files.length > 0) processVideoFile(files[0]);
+        }
+        function processVideoFile(file) {
+            // Folosim URL local temporar în loc de Base64 uriaș (elimină complet crash-ul)
+            let videoUrl = URL.createObjectURL(file);
+            let playlist = JSON.parse(localStorage.getItem('bro_playlist')) || [];
+            playlist.push({ title: file.name, url: videoUrl, isAd: false });
+            localStorage.setItem('bro_playlist', JSON.stringify(playlist));
+            renderPlaylist();
+            logAI(`📁 Fișierul "${file.name}" a fost încărcat cu succes prin Drag & Drop (Fără crash)!`);
+        }
+
         function executeAICommand() {
             let prompt = document.getElementById('aiPrompt').value.trim().toLowerCase();
             if(!prompt) return alert("Scrie o comandă pentru AI!");
@@ -189,23 +212,6 @@
 
         function logAI(text) {
             document.getElementById('aiResponseBox').innerHTML = text;
-        }
-
-        function handleFileSelect(e) {
-            let files = e.target.files;
-            if(files.length > 0) processVideoFile(files[0]);
-        }
-        function processVideoFile(file) {
-            let reader = new FileReader();
-            reader.onload = function(event) {
-                let videoDataUrl = event.target.result;
-                let playlist = JSON.parse(localStorage.getItem('bro_playlist')) || [];
-                playlist.push({ title: file.name, url: videoDataUrl, isAd: false });
-                localStorage.setItem('bro_playlist', JSON.stringify(playlist));
-                renderPlaylist();
-                logAI(`📁 Fișierul "${file.name}" a fost încărcat cu succes în playlist!`);
-            };
-            reader.readAsDataURL(file);
         }
 
         function addToPlaylist() {
