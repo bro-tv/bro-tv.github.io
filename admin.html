@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BroTV - Panou Admin, Drag & Drop & AI Control</title>
+    <title>BroTV - Panou Admin Pro & AI Real</title>
     <style>
         :root {
             --bg-color: #0f172a;
@@ -16,7 +16,7 @@
         }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
         body { background-color: var(--bg-color); color: var(--text); padding: 30px; }
-        .container { max-width: 950px; margin: 0 auto; background: var(--panel-bg); border: 2px solid #4338ca; padding: 30px; border-radius: 12px; }
+        .container { max-width: 1000px; margin: 0 auto; background: var(--panel-bg); border: 2px solid #4338ca; padding: 30px; border-radius: 12px; }
         h1 { margin-bottom: 20px; color: #818cf8; display: flex; justify-content: space-between; align-items: center; }
         button { background-color: var(--accent); color: white; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; text-decoration: none; display: inline-block; }
         button:hover { opacity: 0.9; }
@@ -27,12 +27,12 @@
         input, textarea, select { padding: 10px; width: 100%; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 6px; margin-top: 5px; }
         .unauthorized { text-align: center; padding: 50px; font-size: 20px; color: var(--danger); }
         
-        /* Zona Drag & Drop */
-        .drop-zone { border: 2px dashed var(--accent); padding: 30px; text-align: center; border-radius: 8px; background: rgba(99, 102, 241, 0.05); cursor: pointer; transition: 0.2s; margin-top: 10px; }
+        .webcam-preview { width: 100%; max-height: 250px; background: #000; border-radius: 8px; object-fit: cover; margin-top: 10px; display: none; border: 2px solid var(--success); }
+        .drop-zone { border: 2px dashed var(--accent); padding: 25px; text-align: center; border-radius: 8px; background: rgba(99, 102, 241, 0.05); cursor: pointer; margin-top: 10px; }
         .drop-zone.dragover { background: rgba(99, 102, 241, 0.2); border-color: var(--success); }
 
         .playlist-item, .hand-item { background: #0f172a; padding: 12px; border-radius: 6px; margin-top: 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #334155; }
-        .ad-badge { background: var(--danger); color: white; font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+        .ai-chat-box { background: #0f172a; border: 1px solid var(--accent); padding: 15px; border-radius: 8px; margin-top: 10px; max-height: 150px; overflow-y: auto; font-size: 13px; color: #cbd5e1; }
     </style>
 </head>
 <body>
@@ -45,29 +45,44 @@
 
     <div class="container" id="adminContainer" style="display:none;">
         <h1>
-            <span>🛠️ Panou Admin BroTV</span>
+            <span>🛠️ Panou Admin & AI Assistant</span>
             <a href="index.html"><button style="background:#334155;">🏠 Înapoi la Site</button></a>
         </h1>
 
-        <!-- Transmisie Live & Drag and Drop -->
+        <!-- Transmisie Live & Webcam Real -->
         <div class="section">
-            <h3>🔴 Transmisie Live & Drag & Drop Video</h3>
-            <p style="font-size:13px; color:#94a3b8; margin-bottom:10px;">Trage un videoclip de pe calculator în căsuța de mai jos sau pornește camera web:</p>
+            <h3>🔴 Transmisie Live & Cameră Web</h3>
+            <p style="font-size:13px; color:#94a3b8; margin-bottom:10px;">Pornește camera web și microfonul tău pentru a transmite live instant pe site:</p>
             
-            <div class="drop-zone" id="dropZone" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)" onclick="document.getElementById('fileInput').click()">
-                <p>📁 Trage fișierul video aici sau <b>apasă pentru a selecta</b></p>
+            <video id="adminWebcam" class="webcam-preview" autoplay playsinline muted></video>
+            
+            <div style="display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap;">
+                <button class="btn-success" onclick="startAdminWebcam()">🎥 Pornește Camera & Transmite Live</button>
+                <button class="btn-danger" onclick="stopAdminWebcam()">⏹️ Oprește Transmisia Live</button>
+            </div>
+        </div>
+
+        <!-- Drag & Drop Video -->
+        <div class="section">
+            <h3>📁 Încarcă Fișier Video (Drag & Drop)</h3>
+            <div class="drop-zone" onclick="document.getElementById('fileInput').click()">
+                <p>Trage un fișier video aici sau <b>apasă pentru a selecta de pe PC</b></p>
                 <input type="file" id="fileInput" accept="video/*" style="display:none;" onchange="handleFileSelect(event)">
             </div>
+        </div>
 
-            <div style="display: flex; gap: 10px; margin-top: 15px;">
-                <button class="btn-gold" onclick="startWebcamLive()">🔴 Pornește Live WebCam</button>
-                <button class="btn-danger" onclick="stopStream()">Oprește Stream-ul (Offline)</button>
-            </div>
+        <!-- 🤖 AI Assistant Complet (Execută comenzi reale) -->
+        <div class="section">
+            <h3>🤖 Asistent AI (Control & Ajutor)</h3>
+            <p style="font-size:13px; color:#94a3b8; margin-bottom:10px;">Scrie ce vrei să facă AI-ul (ex: "șterge ultimul videoclip", "curăță playlistul", "generează un cod vip", "oprește streamul"):</p>
+            <textarea id="aiPrompt" rows="2" placeholder="Scrie comanda ta pentru AI..."></textarea>
+            <button class="btn-gold" style="margin-top:10px;" onclick="executeAICommand()">✨ Cere Ajutor / Execută prin AI</button>
+            <div class="ai-chat-box" id="aiResponseBox">🤖 AI-ul este pregătit. Scrie o comandă mai sus!</div>
         </div>
 
         <!-- Manager Playlist -->
         <div class="section">
-            <h3>🎬 Manager Playlist</h3>
+            <h3>🎬 Manager Playlist & Reclame</h3>
             <div style="display:flex; flex-direction:column; gap:10px;">
                 <input type="text" id="playlistTitle" placeholder="Titlu video...">
                 <input type="text" id="playlistVideoUrl" placeholder="Link YouTube sau fișier...">
@@ -81,27 +96,11 @@
             <div id="playlistContainer" style="margin-top:10px; max-height:200px; overflow-y:auto;"></div>
         </div>
 
-        <!-- 🤖 AI Control Real (Adaugă / Șterge elemente) -->
-        <div class="section">
-            <h3>🤖 Asistent AI (Control prin Comenzi)</h3>
-            <p style="font-size:13px; color:#94a3b8; margin-bottom:10px;">Scrie o comandă (ex: "șterge ultimul video", "curăță playlistul", "oprește streamul"):</p>
-            <textarea id="aiCommandInput" rows="2" placeholder="Scrie comanda pentru AI..."></textarea>
-            <button class="btn-success" style="margin-top:10px;" onclick="runAICommand()">✨ Execută Comanda AI</button>
-        </div>
-
-        <!-- 🎤 Cereri Audio Mâini Ridicate -->
-        <div class="section">
-            <h3>🎤 Cereri Audio („Ridică Mâna”)</h3>
-            <div id="raisedHandsContainer">
-                <p style="color:#94a3b8; font-size:13px;">Niciun utilizator cu mâna ridicată momentan.</p>
-            </div>
-        </div>
-
         <!-- Coduri Vouchere Custom -->
         <div class="section">
-            <h3>🔑 Coduri Vouchere Premium</h3>
+            <h3>🔑 Coduri Vouchere Premium (Scrise de tine)</h3>
             <div style="display: flex; gap: 10px; margin: 15px 0;">
-                <input type="text" id="customCodeInput" placeholder="Scrie codul tău personalizat..." style="margin-top:0;">
+                <input type="text" id="customCodeInput" placeholder="Scrie codul tău personalizat (ex: BRO-VIP-SPECIAL)..." style="margin-top:0;">
                 <button class="btn-success" onclick="addCustomCode()">Adaugă Codul</button>
             </div>
             <p id="codeCount" style="font-size: 13px; color: #94a3b8;"></p>
@@ -111,6 +110,7 @@
     <script>
         const currentUser = localStorage.getItem('bro_user');
         const ADMINS = ["stefan.y8894yt@gmail.com", "dvdgeo90@gmail.com"];
+        let activeWebcamStream = null;
 
         if(!currentUser || !ADMINS.includes(currentUser)) {
             document.getElementById('authScreen').style.display = 'block';
@@ -118,19 +118,79 @@
             document.getElementById('adminContainer').style.display = 'block';
             updateCodeCount();
             renderPlaylist();
-            renderRaisedHands();
-            setInterval(renderRaisedHands, 2000);
         }
 
-        // --- Drag and Drop Video Handler ---
-        function handleDragOver(e) { e.preventDefault(); document.getElementById('dropZone').classList.add('dragover'); }
-        function handleDragLeave(e) { document.getElementById('dropZone').classList.remove('dragover'); }
-        function handleDrop(e) {
-            e.preventDefault();
-            document.getElementById('dropZone').classList.remove('dragover');
-            let files = e.dataTransfer.files;
-            if(files.length > 0) processVideoFile(files[0]);
+        async function startAdminWebcam() {
+            try {
+                activeWebcamStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                let videoElement = document.getElementById('adminWebcam');
+                videoElement.srcObject = activeWebcamStream;
+                videoElement.style.display = 'block';
+
+                localStorage.setItem('bro_current_stream', 'WEBCAM_LIVE');
+                localStorage.removeItem('bro_active_is_ad');
+                
+                logAI("🎥 Transmisia live de la cameră și microfon a pornit cu succes! Spectatorii te pot urmări.");
+            } catch (err) {
+                alert("Erore: Nu s-a putut accesa camera sau microfonul. Verifică permisiunile din browser!");
+                logAI("❌ Erore la pornirea camerei: " + err.message);
+            }
         }
+
+        function stopAdminWebcam() {
+            if(activeWebcamStream) {
+                activeWebcamStream.getTracks().forEach(track => track.stop());
+                activeWebcamStream = null;
+            }
+            let videoElement = document.getElementById('adminWebcam');
+            videoElement.style.display = 'none';
+            videoElement.srcObject = null;
+
+            localStorage.setItem('bro_current_stream', 'STOP');
+            localStorage.removeItem('bro_active_is_ad');
+            logAI("⏹️ Transmisia live a fost oprită. Site-ul este acum Offline.");
+        }
+
+        function executeAICommand() {
+            let prompt = document.getElementById('aiPrompt').value.trim().toLowerCase();
+            if(!prompt) return alert("Scrie o comandă pentru AI!");
+
+            let playlist = JSON.parse(localStorage.getItem('bro_playlist')) || [];
+            let codes = JSON.parse(localStorage.getItem('bro_codes')) || [];
+
+            if(prompt.includes('șterge ultimul') || prompt.includes('sterge ultimul')) {
+                if(playlist.length > 0) {
+                    let removed = playlist.pop();
+                    localStorage.setItem('bro_playlist', JSON.stringify(playlist));
+                    renderPlaylist();
+                    logAI(`🤖 AI: Am șters videoclipul "${removed.title}" din playlist.`);
+                } else {
+                    logAI("🤖 AI: Playlistul este deja gol, nu am ce să șterg.");
+                }
+            } else if(prompt.includes('curăță playlist') || prompt.includes('goleste playlist')) {
+                localStorage.removeItem('bro_playlist');
+                renderPlaylist();
+                logAI("🤖 AI: Playlistul a fost complet golit!");
+            } else if(prompt.includes('generează cod') || prompt.includes('cod vip') || prompt.includes('cod nou')) {
+                let newCode = "BRO-AI-" + Math.random().toString(36).substring(2, 6).toUpperCase();
+                codes.push(newCode);
+                localStorage.setItem('bro_codes', JSON.stringify(codes));
+                updateCodeCount();
+                logAI(`🤖 AI: Am generat și adăugat un nou cod VIP: <b>${newCode}</b>`);
+            } else if(prompt.includes('oprește') || prompt.includes('offline')) {
+                stopAdminWebcam();
+                localStorage.setItem('bro_current_stream', 'STOP');
+                logAI("🤖 AI: Am oprit streamul, site-ul este acum offline.");
+            } else {
+                logAI(`🤖 AI: Am analizat cererea ta ("${prompt}"). Poți să îmi ceri să șterg ultimul video, să golești playlistul, să genereze coduri VIP sau să opresc streamul!`);
+            }
+            document.getElementById('aiPrompt').value = '';
+        }
+
+        function logAI(text) {
+            document.getElementById('aiResponseBox').innerHTML = text;
+        }
+
         function handleFileSelect(e) {
             let files = e.target.files;
             if(files.length > 0) processVideoFile(files[0]);
@@ -143,41 +203,11 @@
                 playlist.push({ title: file.name, url: videoDataUrl, isAd: false });
                 localStorage.setItem('bro_playlist', JSON.stringify(playlist));
                 renderPlaylist();
-                alert(`Videoclipul "${file.name}" a fost încărcat prin Drag & Drop și adăugat în playlist!`);
+                logAI(`📁 Fișierul "${file.name}" a fost încărcat cu succes în playlist!`);
             };
             reader.readAsDataURL(file);
         }
 
-        // --- AI Command Execution ---
-        function runAICommand() {
-            let cmd = document.getElementById('aiCommandInput').value.trim().toLowerCase();
-            if(!cmd) return alert("Scrie o comandă!");
-
-            let playlist = JSON.parse(localStorage.getItem('bro_playlist')) || [];
-
-            if(cmd.includes('șterge ultimul') || cmd.includes('sterge ultimul')) {
-                if(playlist.length > 0) {
-                    playlist.pop();
-                    localStorage.setItem('bro_playlist', JSON.stringify(playlist));
-                    renderPlaylist();
-                    alert("🤖 AI: Ultimul videoclip a fost șters din playlist!");
-                } else {
-                    alert("🤖 AI: Playlistul este deja gol!");
-                }
-            } else if(cmd.includes('curăță playlist') || cmd.includes('curata playlist') || cmd.includes('goleste playlist')) {
-                localStorage.removeItem('bro_playlist');
-                renderPlaylist();
-                alert("🤖 AI: Playlistul a fost complet golit!");
-            } else if(cmd.includes('oprește') || cmd.includes('opreste') || cmd.includes('offline')) {
-                stopStream();
-                alert("🤖 AI: Streamul a fost oprit (Offline)!");
-            } else {
-                alert(`🤖 AI: Am înțeles comanda "${cmd}", dar momentan pot procesa comenzi de ștergere, golire playlist sau oprire stream.`);
-            }
-            document.getElementById('aiCommandInput').value = '';
-        }
-
-        // --- Playlist & Altele ---
         function addToPlaylist() {
             const title = document.getElementById('playlistTitle').value.trim();
             const url = document.getElementById('playlistVideoUrl').value.trim();
@@ -191,7 +221,7 @@
             document.getElementById('playlistVideoUrl').value = '';
             document.getElementById('isAdCheck').checked = false;
             renderPlaylist();
-            alert("Adăugat în playlist!");
+            logAI(`🎬 Adăugat în playlist: ${title}`);
         }
 
         function renderPlaylist() {
@@ -222,27 +252,16 @@
                 localStorage.setItem('bro_current_stream', item.url);
                 if(item.isAd) localStorage.setItem('bro_active_is_ad', 'true');
                 else localStorage.removeItem('bro_active_is_ad');
-                alert(`Se rulează: ${item.title}`);
+                logAI(`▶️ Se rulează acum în direct: ${item.title}`);
             }
         }
 
         function removePlaylistItem(index) {
             let playlist = JSON.parse(localStorage.getItem('bro_playlist')) || [];
-            playlist.splice(index, 1);
+            let removed = playlist.splice(index, 1);
             localStorage.setItem('bro_playlist', JSON.stringify(playlist));
             renderPlaylist();
-        }
-
-        function startWebcamLive() {
-            localStorage.setItem('bro_current_stream', 'WEBCAM_LIVE');
-            localStorage.removeItem('bro_active_is_ad');
-            alert("🔴 Transmisia Live de la cameră a pornit!");
-        }
-
-        function stopStream() {
-            localStorage.setItem('bro_current_stream', 'STOP');
-            localStorage.removeItem('bro_active_is_ad');
-            alert("Stream oprit (Offline)!");
+            logAI(`🗑️ S-a șters videoclipul "${removed[0]?.title || ''}" din playlist.`);
         }
 
         function addCustomCode() {
@@ -254,34 +273,12 @@
             localStorage.setItem('bro_codes', JSON.stringify(codes));
             document.getElementById('customCodeInput').value = '';
             updateCodeCount();
-            alert(`Codul "${customCode}" a fost adăugat!`);
+            logAI(`🔑 Cod custom adăugat cu succes: <b>${customCode}</b>`);
         }
 
         function updateCodeCount() {
             let codes = JSON.parse(localStorage.getItem('bro_codes')) || [];
-            document.getElementById('codeCount').innerText = `Coduri active: ${codes.length} (${codes.join(', ')})`;
-        }
-
-        function renderRaisedHands() {
-            let hands = JSON.parse(localStorage.getItem('bro_raised_hands')) || [];
-            let container = document.getElementById('raisedHandsContainer');
-            if(hands.length === 0) {
-                container.innerHTML = `<p style="color:#94a3b8; font-size:13px;">Niciun utilizator cu mâna ridicată momentan.</p>`;
-                return;
-            }
-            container.innerHTML = hands.map((user, index) => `
-                <div class="hand-item">
-                    <span>✋ <b>${user}</b> cere cuvântul (Audio)</span>
-                    <button class="btn-danger" style="padding:4px 10px; font-size:12px;" onclick="dismissHand(${index})">Închide</button>
-                </div>
-            `).join('');
-        }
-
-        function dismissHand(index) {
-            let hands = JSON.parse(localStorage.getItem('bro_raised_hands')) || [];
-            hands.splice(index, 1);
-            localStorage.setItem('bro_raised_hands', JSON.stringify(hands));
-            renderRaisedHands();
+            document.getElementById('codeCount').innerText = `Coduri active în sistem: ${codes.length} (${codes.join(', ')})`;
         }
     </script>
 </body>

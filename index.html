@@ -33,7 +33,9 @@
         
         .stream-section { display: flex; flex-direction: column; gap: 15px; }
         .player-container { background-color: var(--panel-bg); border-radius: 12px; overflow: hidden; aspect-ratio: 16/9; display: flex; align-items: center; justify-content: center; position: relative; border: 1px solid #334155; }
-        .player-container video, .player-container iframe { width: 100%; height: 100%; object-fit: cover; border: none; }
+        
+        /* 🔒 Blocare totală interacțiune pe player (fără play/pauză) */
+        .player-container video, .player-container iframe { width: 100%; height: 100%; object-fit: cover; border: none; pointer-events: none; }
         
         .offline-message { text-align: center; color: var(--text-muted); padding: 20px; display: flex; flex-direction: column; gap: 8px; }
         .offline-message h3 { color: var(--text); font-size: 20px; }
@@ -154,7 +156,6 @@
 
         if(currentUser) applyUserSession(currentUser);
 
-        // Sincronizare în timp real cu panoul de admin (inclusiv fișierele Drag & Drop)
         setInterval(() => {
             let savedStream = localStorage.getItem('bro_current_stream');
             let isAdActive = localStorage.getItem('bro_active_is_ad') === 'true';
@@ -203,7 +204,7 @@
                     container.innerHTML = `
                         <div class="ad-overlay" id="adBadge">⚠️ RECLAMĂ SPONSORIZATĂ</div>
                         <div class="quality-badge" id="qualityBadge">${isBoosted ? 'CALITATE: 1080p (Boost ⭐)' : 'CALITATE: 720p (Minim)'}</div>
-                        <video id="remoteWebcamView" autoplay playsinline style="width:100%; height:100%; object-fit:cover;"></video>
+                        <video id="remoteWebcamView" autoplay playsinline style="width:100%; height:100%; object-fit:cover; pointer-events:none;"></video>
                     `;
                     navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
                         let vid = document.getElementById('remoteWebcamView');
@@ -211,23 +212,23 @@
                     }).catch(e => console.log("Live stream feed error"));
                 }
             } else {
-                // Verifică dacă e link YouTube sau fișier video local încărcat prin Drag & Drop (data:video)
                 if(savedStream.includes('youtube.com') || savedStream.includes('youtu.be')) {
                     let id = savedStream.split('v=')[1]?.split('&')[0] || savedStream.split('/').pop();
                     if(!container.querySelector('iframe')) {
+                        // Parametrii YouTube adăugați: autoplay=1, controls=0, disablekb=1 (fără tastatură/pauză)
                         container.innerHTML = `
                             <div class="ad-overlay" id="adBadge">⚠️ RECLAMĂ SPONSORIZATĂ</div>
                             <div class="quality-badge" id="qualityBadge">${isBoosted ? 'CALITATE: 1080p (Boost ⭐)' : 'CALITATE: 720p (Minim)'}</div>
-                            <iframe src="https://www.youtube.com/embed/${id}?autoplay=1" allow="autoplay" allowfullscreen></iframe>
+                            <iframe src="https://www.youtube.com/embed/${id}?autoplay=1&controls=0&disablekb=1&modestbranding=1&loop=1" allow="autoplay" allowfullscreen></iframe>
                         `;
                     }
                 } else {
-                    // Redă fișiere video locale sau linkuri MP4 directe
                     if(!container.querySelector('video:not(#remoteWebcamView)')) {
+                        // Fără atributele 'controls' ca să nu poată interacționa spectatorul
                         container.innerHTML = `
                             <div class="ad-overlay" id="adBadge">⚠️ RECLAMĂ SPONSORIZATĂ</div>
                             <div class="quality-badge" id="qualityBadge">${isBoosted ? 'CALITATE: 1080p (Boost ⭐)' : 'CALITATE: 720p (Minim)'}</div>
-                            <video controls autoplay src="${savedStream}"></video>
+                            <video autoplay muted src="${savedStream}"></video>
                         `;
                     }
                 }
