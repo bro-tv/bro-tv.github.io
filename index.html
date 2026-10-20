@@ -163,14 +163,17 @@
         let peerConnection = null;
         let lastLoadedStream = "";
 
-        const servers = {
-            iceServers: [{ urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] }]
+        const rtcConfig = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
         };
 
         if(currentUser) applyUserSession(currentUser);
 
-        // Sincronizare Stare Generală Cloud
-        db.ref('bro_state').on('value', async (snapshot) => {
+        // Ascultă Starea Globală din Cloud
+        db.ref('bro_state').on('value', (snapshot) => {
             const data = snapshot.val() || {};
             let savedStream = data.current_stream || 'STOP';
             let isAdActive = data.is_ad === true;
@@ -225,7 +228,7 @@
                         <div class="quality-badge" id="qualityBadge">${isBoosted ? 'CALITATE: 1080p (Boost ⭐)' : 'CALITATE: 720p (Minim)'}</div>
                         <video id="remoteWebcamView" autoplay playsinline controls style="width:100%; height:100%; object-fit:cover;"></video>
                     `;
-                    startViewerWebcamReceive();
+                    initViewerWebRTC();
                 }
             } else {
                 if(lastLoadedStream !== savedStream) {
@@ -250,20 +253,21 @@
             }
         });
 
-        // Primire Stream Live WebRTC de la Admin
-        async function startViewerWebcamReceive() {
-            peerConnection = new RTCPeerConnection(servers);
+        // Conexiune WebRTC pentru Vizitatori (primesc Live Camera de la Admin)
+        function initViewerWebRTC() {
+            peerConnection = new RTCPeerConnection(rtcConfig);
             let remoteVideo = document.getElementById('remoteWebcamView');
 
             peerConnection.ontrack = (event) => {
-                if(remoteVideo && event.streams[0]) {
+                if (remoteVideo && event.streams[0]) {
                     remoteVideo.srcObject = event.streams[0];
                 }
             };
 
+            // Ascultă semnalul de la Admin
             db.ref('webrtc/offer').on('value', async (snapshot) => {
                 let offer = snapshot.val();
-                if(offer && !peerConnection.currentRemoteDescription && peerConnection.signalingState === "stable") {
+                if (offer && !peerConnection.currentRemoteDescription) {
                     await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
                     let answer = await peerConnection.createAnswer();
                     await peerConnection.setLocalDescription(answer);
@@ -273,7 +277,7 @@
 
             db.ref('webrtc/candidates').on('child_added', (snapshot) => {
                 let candidate = snapshot.val();
-                if(candidate && peerConnection) {
+                if (candidate && peerConnection) {
                     peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
                 }
             });
@@ -353,7 +357,7 @@
         db.ref('bro_chat').limitToLast(50).on('child_added', (snapshot) => {
             const val = snapshot.val();
             const chat = document.getElementById('chatMessages');
-            chat.innerHTML += `<div><b>${val.name}:</b> ${val.message}</div>`;
+            chat.html += `<div><b>${val.name}:</b> ${val.message}</div>`;
             chat.scrollTop = chat.scrollHeight;
         });
     </script>
