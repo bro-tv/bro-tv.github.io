@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BroTV - Panou Admin & AI Cloud</title>
+    <title>BroTV - Panou Admin</title>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
@@ -19,68 +19,69 @@
         }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
         body { background-color: var(--bg-color); color: var(--text); padding: 30px; }
-        .container { max-width: 1000px; margin: 0 auto; background: var(--panel-bg); border: 2px solid #4338ca; padding: 30px; border-radius: 12px; }
+        .container { max-width: 900px; margin: 0 auto; background: var(--panel-bg); border: 2px solid #4338ca; padding: 30px; border-radius: 12px; }
         h1 { margin-bottom: 20px; color: #818cf8; display: flex; justify-content: space-between; align-items: center; }
-        button { background-color: var(--accent); color: white; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; text-decoration: none; display: inline-block; }
+        button { background-color: var(--accent); color: white; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-weight: bold; }
         button:hover { opacity: 0.9; }
         .btn-danger { background-color: var(--danger); }
         .btn-gold { background-color: var(--gold); color: black; }
         .btn-success { background-color: var(--success); }
         .section { margin-bottom: 25px; padding-bottom: 20px; border-bottom: 1px solid #334155; }
-        input, textarea, select { padding: 10px; width: 100%; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 6px; margin-top: 5px; }
+        input, textarea { padding: 10px; width: 100%; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 6px; margin-top: 5px; }
         .unauthorized { text-align: center; padding: 50px; font-size: 20px; color: var(--danger); }
+        .ai-box { background: #0f172a; border: 1px solid var(--accent); padding: 12px; border-radius: 6px; margin-top: 10px; font-size: 13px; color: #cbd5e1; }
         
-        .playlist-item { background: #0f172a; padding: 12px; border-radius: 6px; margin-top: 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #334155; }
-        .ai-chat-box { background: #0f172a; border: 1px solid var(--accent); padding: 15px; border-radius: 8px; margin-top: 10px; max-height: 150px; overflow-y: auto; font-size: 13px; color: #cbd5e1; }
+        .drop-zone { border: 2px dashed var(--accent); padding: 20px; text-align: center; border-radius: 8px; background: rgba(99, 102, 241, 0.05); cursor: pointer; margin-top: 10px; }
+        .drop-zone.dragover { background: rgba(99, 102, 241, 0.2); border-color: var(--success); }
     </style>
 </head>
 <body>
 
     <div id="authScreen" class="unauthorized" style="display:none;">
         <h2>⛔ Acces Restricționat!</h2>
-        <p>Nu ești logat ca Administrator pe site.</p>
-        <br><a href="index.html"><button>Înapoi la BroTV</button></a>
+        <p>Nu ești logat ca Administrator.</p>
+        <br><a href="index.html"><button>Înapoi</button></a>
     </div>
 
     <div class="container" id="adminContainer" style="display:none;">
         <h1>
-            <span>🛠️ Panou Admin & AI Cloud</span>
+            <span>🛠️ Panou Admin BroTV</span>
             <a href="index.html"><button style="background:#334155;">🏠 Înapoi la Site</button></a>
         </h1>
 
-        <!-- 🤖 Asistent AI Cloud -->
+        <!-- Control Video / YouTube sau Fișier Direct -->
         <div class="section">
-            <h3>🤖 Asistent AI (Control Cloud)</h3>
-            <p style="font-size:13px; color:#94a3b8; margin-bottom:10px;">Comenzi: <i>"curăță playlist"</i>, <i>"generează cod"</i>, <i>"oprește stream"</i> sau scrie orice text pentru a-l afișa ca anunț pe ecran:</p>
-            <textarea id="aiPrompt" rows="2" placeholder="Scrie comanda ta..."></textarea>
-            <button class="btn-gold" style="margin-top:10px;" onclick="executeAICommand()">✨ Trimite comanda la AI</button>
-            <div class="ai-chat-box" id="aiResponseBox">🤖 AI-ul este pregătit. Scrie o comandă sus!</div>
+            <h3>🎬 Pornește Video (YouTube sau Link Direct)</h3>
+            <input type="text" id="streamUrlInput" placeholder="Introdu link YouTube sau link .mp4...">
+            <button class="btn-success" style="margin-top:10px;" onclick="startStream()">▶️ Rulează pe Site</button>
+            
+            <h4 style="margin-top:15px; font-size:14px; color:#cbd5e1;">Sau Încarcă un fișier video direct de pe PC (Drag & Drop):</h4>
+            <div class="drop-zone" id="dropZone" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)" onclick="document.getElementById('fileInput').click()">
+                <p>Trage un fișier video mic aici sau <b>apasă pentru a selecta de pe PC</b></p>
+                <input type="file" id="fileInput" accept="video/*" style="display:none;" onchange="handleFileSelect(event)">
+            </div>
+
+            <div style="margin-top:10px;">
+                <button class="btn-danger" onclick="stopStream()">⏹️ Oprește Streamul (Offline)</button>
+            </div>
         </div>
 
-        <!-- Manager Playlist -->
+        <!-- Asistent AI Control Cloud -->
         <div class="section">
-            <h3>🎬 Manager Playlist & Reclame (YouTube / Link Direct)</h3>
-            <div style="display:flex; flex-direction:column; gap:10px;">
-                <input type="text" id="playlistTitle" placeholder="Titlu video (ex: Show Live, Trailer)...">
-                <input type="text" id="playlistVideoUrl" placeholder="Link YouTube sau link video direct (.mp4)...">
-                <div style="display:flex; align-items:center; gap:10px; margin-top:5px;">
-                    <input type="checkbox" id="isAdCheck" style="width:20px; height:20px; accent-color: var(--danger); cursor:pointer;">
-                    <label for="isAdCheck" style="cursor:pointer; font-weight:600; color:var(--danger);">⚠️ Marchează ca RECLAMĂ</label>
-                </div>
-                <button class="btn-gold" onclick="addToPlaylist()">➕ Adaugă în Playlist</button>
-            </div>
-            <h4 style="margin-top: 20px;">📋 Playlist Activ (Cloud):</h4>
-            <div id="playlistContainer" style="margin-top:10px; max-height:200px; overflow-y:auto;"></div>
+            <h3>🤖 Asistent AI (Modifică Anunțul sau Generează Coduri)</h3>
+            <textarea id="aiPrompt" rows="2" placeholder="Scrie o comandă (ex: curăță chatul, generează cod, sau scrie un anunț)..."></textarea>
+            <button class="btn-gold" style="margin-top:10px;" onclick="executeAI()">✨ Execută Comanda</button>
+            <div class="ai-box" id="aiLog">🤖 AI pregătit.</div>
         </div>
 
         <!-- Coduri Vouchere -->
         <div class="section">
-            <h3>🔑 Coduri Vouchere Premium</h3>
-            <div style="display: flex; gap: 10px; margin: 15px 0;">
-                <input type="text" id="customCodeInput" placeholder="Cod custom (ex: VIP-BRATV)..." style="margin-top:0;">
-                <button class="btn-success" onclick="addCustomCode()">Adaugă Codul</button>
+            <h3>🔑 Generează Cod VIP</h3>
+            <div style="display:flex; gap:10px; margin-top:10px;">
+                <input type="text" id="customCode" placeholder="Ex: CLASA10" style="margin-top:0;">
+                <button class="btn-success" onclick="addCode()">Adaugă Cod</button>
             </div>
-            <div id="codesList" style="font-size: 13px; color: #94a3b8;"></div>
+            <div id="codesList" style="font-size:13px; color:#94a3b8; margin-top:10px;"></div>
         </div>
     </div>
 
@@ -98,87 +99,75 @@
             document.getElementById('authScreen').style.display = 'block';
         } else {
             document.getElementById('adminContainer').style.display = 'block';
-            renderPlaylist();
             renderCodes();
         }
 
-        function executeAICommand() {
-            let prompt = document.getElementById('aiPrompt').value.trim().toLowerCase();
-            if(!prompt) return alert("Scrie o comandă!");
+        function startStream() {
+            let url = document.getElementById('streamUrlInput').value.trim();
+            if(!url) return alert("Introdu un link valid!");
+            db.ref('bro_state/current_stream').set(url);
+            document.getElementById('aiLog').innerText = "▶️ Videoclipul a pornit cu succes pentru toată lumea!";
+        }
 
-            if(prompt.includes('curăță') || prompt.includes('goleste') || prompt.includes('șterge')) {
-                db.ref('bro_playlist').remove();
-                logAI(`🤖 <b>AI:</b> Am șters tot playlistul din cloud! 🧹`);
-            } else if(prompt.includes('cod') || prompt.includes('vip')) {
-                let newCode = "BRO-AI-" + Math.random().toString(36).substring(2, 6).toUpperCase();
-                db.ref('bro_codes/' + newCode).set(true);
-                logAI(`🤖 <b>AI:</b> Cod VIP generat și salvat: <b style="color:var(--gold);">${newCode}</b> 🎁`);
-            } else if(prompt.includes('oprește') || prompt.includes('opreste') || prompt.includes('offline') || prompt.includes('închide')) {
-                db.ref('bro_state').update({ current_stream: 'STOP', is_ad: false });
-                logAI(`🤖 <b>AI:</b> Am oprit redarea! Site-ul este acum Offline pentru toată lumea. 🔴`);
+        function stopStream() {
+            db.ref('bro_state/current_stream').set('STOP');
+            document.getElementById('aiLog').innerText = "⏹️ Stream oprit. Site-ul este Offline.";
+        }
+
+        // --- Drag & Drop convertit direct în memorie (Base64) pentru a rula pe site ---
+        function handleDragOver(e) { e.preventDefault(); document.getElementById('dropZone').classList.add('dragover'); }
+        function handleDragLeave(e) { document.getElementById('dropZone').classList.remove('dragover'); }
+        function handleDrop(e) {
+            e.preventDefault();
+            document.getElementById('dropZone').classList.remove('dragover');
+            let files = e.dataTransfer.files;
+            if(files.length > 0) convertAndPlayFile(files[0]);
+        }
+        function handleFileSelect(e) {
+            let files = e.target.files;
+            if(files.length > 0) convertAndPlayFile(files[0]);
+        }
+
+        function convertAndPlayFile(file) {
+            if(file.size > 5 * 1024 * 1024) {
+                alert("Pentru a merge direct în baza de date fără server extern, fișierul trebuie să fie sub 5MB (ex: un clip scurt sau o animație). Pentru clipuri mari, folosește un link de YouTube!");
+                return;
+            }
+            document.getElementById('aiLog').innerText = "⏳ Se încarcă fișierul în baza de date...";
+            let reader = new FileReader();
+            reader.onload = function(event) {
+                let base64Url = event.target.result;
+                db.ref('bro_state/current_stream').set(base64Url);
+                document.getElementById('aiLog').innerText = `▶️ Fișierul "${file.name}" a fost urcat și pornit pentru toți!`;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function executeAI() {
+            let text = document.getElementById('aiPrompt').value.trim();
+            if(!text) return alert("Scrie ceva!");
+            
+            let lower = text.toLowerCase();
+            if(lower.includes('curăță chat') || lower.includes('sterge chat')) {
+                db.ref('bro_chat').remove();
+                document.getElementById('aiLog').innerText = "🤖 AI: Am șters tot chatul!";
+            } else if(lower.includes('generează cod') || lower.includes('cod')) {
+                let code = "BRO-" + Math.random().toString(36).substring(2, 6).toUpperCase();
+                db.ref('bro_codes/' + code).set(true);
+                document.getElementById('aiLog').innerText = `🤖 AI: Cod generat: ${code}`;
             } else {
-                db.ref('bro_state/ai_widget').set(`<p style="color:var(--gold); font-weight:bold;">✨ ${prompt}</p>`);
-                logAI(`🤖 <b>AI:</b> Mesajul a fost afișat ca Anunț/Widget pe ecranul tuturor! 📢`);
+                db.ref('bro_state/announcement').set(`📢 ${text}`);
+                document.getElementById('aiLog').innerText = `🤖 AI: Anunțul a fost actualizat pe site!`;
             }
             document.getElementById('aiPrompt').value = '';
         }
 
-        function logAI(text) {
-            document.getElementById('aiResponseBox').innerHTML = text;
-        }
-
-        function addToPlaylist() {
-            const title = document.getElementById('playlistTitle').value.trim();
-            const url = document.getElementById('playlistVideoUrl').value.trim();
-            const isAd = document.getElementById('isAdCheck').checked;
-            if(!title || !url) return alert("Completează titlul și linkul!");
-
-            db.ref('bro_playlist').push({ title, url, isAd });
-            document.getElementById('playlistTitle').value = '';
-            document.getElementById('playlistVideoUrl').value = '';
-            document.getElementById('isAdCheck').checked = false;
-            logAI(`🎬 Adăugat în playlist: ${title}`);
-        }
-
-        function renderPlaylist() {
-            db.ref('bro_playlist').on('value', (snapshot) => {
-                let data = snapshot.val() || {};
-                let container = document.getElementById('playlistContainer');
-                let keys = Object.keys(data);
-                if(keys.length === 0) {
-                    container.innerHTML = `<p style="color:#94a3b8; font-size:13px;">Playlist gol.</p>`;
-                    return;
-                }
-                container.innerHTML = keys.map((key, index) => `
-                    <div class="playlist-item">
-                        <div>
-                            <b>#${index + 1} - ${data[key].title}</b>
-                            ${data[key].isAd ? '<span style="background:red; color:white; padding:2px 5px; font-size:10px;">RECLAMĂ</span>' : ''}
-                        </div>
-                        <div>
-                            <button style="padding:4px 8px; font-size:12px; background:#22c55e;" onclick="playItem('${data[key].url}', ${data[key].isAd})">Rulează</button>
-                            <button style="padding:4px 8px; font-size:12px;" class="btn-danger" onclick="removeItem('${key}')">Șterge</button>
-                        </div>
-                    </div>
-                `).join('');
-            });
-        }
-
-        function playItem(url, isAd) {
-            db.ref('bro_state').update({ current_stream: url, is_ad: isAd });
-            logAI(`▶️ Rulează acum pe site pentru toți vizitatorii.`);
-        }
-
-        function removeItem(key) {
-            db.ref('bro_playlist/' + key).remove();
-        }
-
-        function addCustomCode() {
-            let code = document.getElementById('customCodeInput').value.trim().toUpperCase();
+        function addCode() {
+            let code = document.getElementById('customCode').value.trim().toUpperCase();
             if(!code) return alert("Scrie un cod!");
             db.ref('bro_codes/' + code).set(true);
-            document.getElementById('customCodeInput').value = '';
-            logAI(`🔑 Cod VIP adăugat în cloud: ${code}`);
+            document.getElementById('customCode').value = '';
+            document.getElementById('aiLog').innerText = `🔑 Codul ${code} a fost adăugat!`;
         }
 
         function renderCodes() {
