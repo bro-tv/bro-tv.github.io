@@ -37,7 +37,7 @@
         .stream-section { display: flex; flex-direction: column; gap: 15px; }
         .player-container { background-color: var(--panel-bg); border-radius: 12px; overflow: hidden; aspect-ratio: 16/9; display: flex; align-items: center; justify-content: center; position: relative; border: 1px solid #334155; }
         
-        .player-container video, .player-container iframe { width: 100%; height: 100%; object-fit: cover; border: none; }
+        .player-container video, .player-container iframe { width: 100%; height: 100%; object-fit: cover; border: none; pointer-events: none; }
         
         .offline-message { text-align: center; color: var(--text-muted); padding: 20px; display: flex; flex-direction: column; gap: 8px; }
         .offline-message h3 { color: var(--text); font-size: 20px; }
@@ -160,19 +160,10 @@
         let currentUser = localStorage.getItem('bro_user') || null;
         let isPremium = localStorage.getItem('bro_premium') === 'true';
         const ADMINS = ["stefan.y8894yt@gmail.com", "dvdgeo90@gmail.com"];
-        let peerConnection = null;
         let lastLoadedStream = "";
-
-        const rtcConfig = {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' }
-            ]
-        };
 
         if(currentUser) applyUserSession(currentUser);
 
-        // Ascultă Starea Globală din Cloud
         db.ref('bro_state').on('value', (snapshot) => {
             const data = snapshot.val() || {};
             let savedStream = data.current_stream || 'STOP';
@@ -209,7 +200,6 @@
 
             if(savedStream === 'STOP') {
                 lastLoadedStream = 'STOP';
-                if(peerConnection) { peerConnection.close(); peerConnection = null; }
                 if(!document.getElementById('offlineState')) {
                     container.innerHTML = `
                         <div class="ad-overlay" id="adBadge">⚠️ RECLAMĂ SPONSORIZATĂ</div>
@@ -220,20 +210,9 @@
                         </div>
                     `;
                 }
-            } else if(savedStream === 'WEBCAM_LIVE') {
-                if(lastLoadedStream !== 'WEBCAM_LIVE') {
-                    lastLoadedStream = 'WEBCAM_LIVE';
-                    container.innerHTML = `
-                        <div class="ad-overlay" id="adBadge">⚠️ RECLAMĂ SPONSORIZATĂ</div>
-                        <div class="quality-badge" id="qualityBadge">${isBoosted ? 'CALITATE: 1080p (Boost ⭐)' : 'CALITATE: 720p (Minim)'}</div>
-                        <video id="remoteWebcamView" autoplay playsinline controls style="width:100%; height:100%; object-fit:cover;"></video>
-                    `;
-                    initViewerWebRTC();
-                }
             } else {
                 if(lastLoadedStream !== savedStream) {
                     lastLoadedStream = savedStream;
-                    if(peerConnection) { peerConnection.close(); peerConnection = null; }
 
                     if(savedStream.includes('youtube.com') || savedStream.includes('youtu.be')) {
                         let id = savedStream.split('v=')[1]?.split('&')[0] || savedStream.split('/').pop();
@@ -246,42 +225,19 @@
                         container.innerHTML = `
                             <div class="ad-overlay" id="adBadge">⚠️ RECLAMĂ SPONSORIZATĂ</div>
                             <div class="quality-badge" id="qualityBadge">${isBoosted ? 'CALITATE: 1080p (Boost ⭐)' : 'CALITATE: 720p (Minim)'}</div>
-                            <video autoplay playsinline controls src="${savedStream}"></video>
+                            <video autoplay playsinline muted src="${savedStream}"></video>
                         `;
+                        let vNode = container.querySelector('video');
+                        if(vNode) {
+                            vNode.play().catch(err => {
+                                vNode.muted = true;
+                                vNode.play();
+                            });
+                        }
                     }
                 }
             }
         });
-
-        // Conexiune WebRTC pentru Vizitatori (primesc Live Camera de la Admin)
-        function initViewerWebRTC() {
-            peerConnection = new RTCPeerConnection(rtcConfig);
-            let remoteVideo = document.getElementById('remoteWebcamView');
-
-            peerConnection.ontrack = (event) => {
-                if (remoteVideo && event.streams[0]) {
-                    remoteVideo.srcObject = event.streams[0];
-                }
-            };
-
-            // Ascultă semnalul de la Admin
-            db.ref('webrtc/offer').on('value', async (snapshot) => {
-                let offer = snapshot.val();
-                if (offer && !peerConnection.currentRemoteDescription) {
-                    await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-                    let answer = await peerConnection.createAnswer();
-                    await peerConnection.setLocalDescription(answer);
-                    db.ref('webrtc/answer').set(answer);
-                }
-            });
-
-            db.ref('webrtc/candidates').on('child_added', (snapshot) => {
-                let candidate = snapshot.val();
-                if (candidate && peerConnection) {
-                    peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-                }
-            });
-        }
 
         function openModal(id) { document.getElementById(id).style.display = 'flex'; }
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
@@ -357,7 +313,7 @@
         db.ref('bro_chat').limitToLast(50).on('child_added', (snapshot) => {
             const val = snapshot.val();
             const chat = document.getElementById('chatMessages');
-            chat.html += `<div><b>${val.name}:</b> ${val.message}</div>`;
+            chat.innerHTML += `<div><b>${val.name}:</b> ${val.message}</div>`;
             chat.scrollTop = chat.scrollHeight;
         });
     </script>
